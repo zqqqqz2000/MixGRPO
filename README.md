@@ -67,6 +67,11 @@ huggingface-cli download --resume-download  black-forest-labs/FLUX.1-dev --local
 #### 2. Reward Models
 
 ##### HPS-v2.1
+Download the code of [HPSv2](https://github.com/tgxs002/HPSv2).
+```bash
+git clone https://github.com/tgxs002/HPSv2.git
+```
+
 Download the `"HPS_v2.1_compressed.pt"` and `"open_clip_model.safetensors"` to `"./hps_ckpt"`
 ```bash
 mkdir hps_ckpt
@@ -85,9 +90,10 @@ python fastvideo/models/reward_model/pick_score.py \
 ```
 
 ##### ImageReward
-Down the `"ImageReward.pt"` to `"./image_reward_ckpt"`
+Down the `"ImageReward.pt"` and `"med_config.json"` to `"./image_reward_ckpt"`
 ```bash
 huggingface-cli login
+huggingface-cli download --resume-download THUDM/ImageReward med_config.json --local-dir ./image_reward_ckpt/
 huggingface-cli download --resume-download THUDM/ImageReward ImageReward.pt --local-dir ./image_reward_ckpt/
 ```
 

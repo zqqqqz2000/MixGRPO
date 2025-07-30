@@ -2,6 +2,8 @@ wandb
 .my_lh
 **/.DS_Store
 fastvideo.egg-info
+./image_reward_ckpt
+./HPSv2
 
 # models
 data/flux
