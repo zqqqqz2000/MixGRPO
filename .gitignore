@@ -2,8 +2,6 @@ wandb
 .my_lh
 **/.DS_Store
 fastvideo.egg-info
-./image_reward_ckpt
-./HPSv2
 
 # models
 data/flux
@@ -12,6 +10,8 @@ hps_ckpt
 image_reward_ckpt/.cache
 image_reward_ckpt/ImageReward.pt
 mix_grpo_ckpt
+image_reward_ckpt
+HPSv2
 
 # outputs
 data/outputs
