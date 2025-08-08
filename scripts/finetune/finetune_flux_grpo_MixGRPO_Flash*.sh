@@ -54,7 +54,7 @@ training_strategy="part" # "part", "all"
 sampling_steps=25
 eta=0.7
 kl_coeff=0.0
-iters_per_group=25
+iters_per_group=20
 group_size=4
 sample_strategy="progressive"
 prog_overlap_step=0
@@ -72,9 +72,9 @@ timestep_fraction=0.6
 frozen_init_timesteps=-1
 
 # DPM
-dpm_algorithm_type="null" # "null", "dpm-solver", "dpm-solver++"
+dpm_algorithm_type="dpmsolver++" # "null", "dpm-solver", "dpm-solver++"
 dpm_apply_strategy="post"
-dpm_post_compress_ratio=0.4
+dpm_post_compress_ratio=0.2
 dpm_solver_order=2
 dpm_solver_type="midpoint"
 
