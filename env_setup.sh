@@ -1,40 +1,40 @@
 #!/bin/bash
 
 # install torch
-pip install torch==2.5.0 torchvision --index-url https://download.pytorch.org/whl/cu121
+uv pip install torch==2.5.0 torchvision -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
 # install FA2 and diffusers
-pip install packaging ninja && pip install flash-attn==2.7.0.post2 --no-build-isolation 
+uv pip install packaging ninja -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple && uv pip install flash-attn==2.7.0.post2 --no-build-isolation -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install -r requirements-lint.txt
+uv pip install -r requirements-lint.txt -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
 # install fastvideo
-pip install -e .
+uv pip install -e . -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install ml-collections absl-py inflect==6.0.4 pydantic==1.10.9 huggingface_hub==0.24.0 protobuf==3.20.0 
+uv pip install ml-collections absl-py inflect==6.0.4 pydantic==1.10.9 huggingface_hub==0.24.0 protobuf==3.20.0 -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install accelerate
+uv pip install accelerate -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install trl
+uv pip install trl -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install wandb
+uv pip install wandb -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install pydantic==2.11.5
+uv pip install pydantic==2.11.5 -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install liger_kernel
+uv pip install liger_kernel -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install opencv-python
+uv pip install opencv-python -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install image-reward
+uv pip install image-reward -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install git+https://github.com/openai/CLIP.git
+uv pip install git+https://github.com/openai/CLIP.git
 
-pip install torchmetrics
+uv pip install torchmetrics -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install timm==1.0.13
+uv pip install timm==1.0.13 -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install peft
+uv pip install peft -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install diffusers==0.32.2
+uv pip install diffusers==0.32.2 -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-pip install open-clip-torch
+uv pip install open-clip-torch -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
