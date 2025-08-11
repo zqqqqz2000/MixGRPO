@@ -29,9 +29,11 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm.auto import tqdm
+from transformers.pipelines import pipeline
 
 from fastvideo.dataset.latent_flux_rl_datasets import (LatentDataset,
                                                        latent_collate_function)
+from fastvideo.score import create_vqa_reward_function
 from fastvideo.utils.checkpoint import save_checkpoint, save_lora_checkpoint
 from fastvideo.utils.communications_flux import sp_parallel_dataloader_wrapper
 from fastvideo.utils.dataset_utils import LengthGroupedSampler
@@ -187,7 +189,7 @@ def sample_reference_model(
     encoder_hidden_states,
     pooled_prompt_embeds,
     text_ids,
-    reward_models,
+    reward_function,
     caption,
     timesteps_train,  # index
     global_step,
@@ -208,9 +210,9 @@ def sample_reference_model(
     B = encoder_hidden_states.shape[0]
     SPATIAL_DOWNSAMPLE = 8
     IN_CHANNELS = 16
+    batch_size = 1
     latent_w, latent_h = w // SPATIAL_DOWNSAMPLE, h // SPATIAL_DOWNSAMPLE
 
-    batch_size = 1
     batch_indices = torch.chunk(torch.arange(B), B // batch_size)
 
     all_latents = []
@@ -297,7 +299,7 @@ def sample_reference_model(
             rewards, successes, rewards_dict, successes_dict = compute_reward(
                 images,
                 prompts,
-                reward_models,
+                reward_function,
                 reward_weights,
             )
             if args.multi_reward_mix == "reward_aggr":
@@ -341,7 +343,7 @@ def train_one_step(
     device,
     transformer,
     vae,
-    reward_models,
+    reward_function,
     optimizer,
     lr_scheduler,
     loader,
@@ -389,7 +391,7 @@ def train_one_step(
         encoder_hidden_states,
         pooled_prompt_embeds,
         text_ids,
-        reward_models,
+        reward_function,
         caption,
         timesteps_train,
         global_step,
@@ -633,6 +635,20 @@ def main(args):
     torch.cuda.set_device(local_rank)
     device = torch.cuda.current_device()
     initialize_sequence_parallel_state(args.sp_size)
+    # 创建VQA管道
+    vqa_pipeline = pipeline(
+        "image-text-to-text",
+        model=args.vqa_model,
+        torch_dtype=torch.bfloat16,
+        batch_size=args.sample_batch_size,
+        device_map="auto",
+    )
+    vqa_pipeline.model.eval()
+
+    # 创建奖励函数
+    reward_function = create_vqa_reward_function(
+        vqa_pipeline=vqa_pipeline,
+    )
 
     # If passed along, set the training seed now. On GPU...
     if args.seed is not None:
@@ -649,145 +665,10 @@ def main(args):
         args_dict["wandb_id"] = run_id
         with open(f"{args.output_dir}/{args.training_strategy}_{args.experiment_name}/args.json", "w") as f:
             json.dump(args_dict, f, indent=4)
-    # For mixed precision training we cast all non-trainable weigths to half-precision
-    # as these weights are only used for inference, keeping weights in full precision is not required
-
-    ############################# Build reward models #############################
-    reward_models = []
-    if args.reward_model == "hpsv2":
-        reward_models.append(
-            HPSClipRewardModel(
-                device=device,
-                clip_ckpt_path=args.hps_clip_path,
-                hps_ckpt_path=args.hps_path,
-            )
-        )
-    elif args.reward_model == "image_reward":
-        reward_models.append(
-            ImageRewardModel(
-                model_name=args.image_reward_path,
-                device=device,
-                med_config=args.image_reward_med_config,
-                http_proxy=args.image_reward_http_proxy,
-                https_proxy=args.image_reward_https_proxy,
-            )
-        )
-
-    elif args.reward_model == "clip_score":
-        reward_models.append(
-            CLIPScoreRewardModel(
-                clip_model_path=args.clip_score_path,
-                device=device,
-            )
-        )
-    elif args.reward_model == "pick_score":
-        reward_models.append(
-            PickScoreRewardModel(
-                device=device,
-                http_proxy=args.pick_score_http_proxy,
-                https_proxy=args.pick_score_https_proxy,
-            )
-        )
-    elif args.reward_model == "unified_reward":
-        unified_reward_urls = args.unified_reward_url.split(",")
-
-        if isinstance(unified_reward_urls, list):
-            num_urls = len(unified_reward_urls)
-            ur_url_idx = rank % num_urls
-            ur_url = unified_reward_urls[ur_url_idx]
-            print(f"Rank {rank} using unified-reward URL: {ur_url}")
-        reward_models.append(
-            UnifiedRewardModel(
-                api_url=ur_url,
-                default_question_type=args.unified_reward_default_question_type,
-                num_workers=args.unified_reward_num_workers,
-            )
-        )
-
-    elif args.reward_model == "hpsv2_clip_score":
-        reward_models.append(
-            HPSClipRewardModel(
-                device=device,
-                clip_ckpt_path=args.hps_clip_path,
-                hps_ckpt_path=args.hps_path,
-            )
-        )
-        reward_models.append(
-            CLIPScoreRewardModel(
-                clip_model_path=args.clip_score_path,
-                device=device,
-            )
-        )
-    elif args.reward_model == "multi_reward":
-        reward_models.append(
-            HPSClipRewardModel(
-                device=device,
-                clip_ckpt_path=args.hps_clip_path,
-                hps_ckpt_path=args.hps_path,
-            )
-        )
-        reward_models.append(
-            ImageRewardModel(
-                model_name=args.image_reward_path,
-                device=device,
-                med_config=args.image_reward_med_config,
-                http_proxy=args.image_reward_http_proxy,
-                https_proxy=args.image_reward_https_proxy,
-            )
-        )
-        reward_models.append(
-            PickScoreRewardModel(
-                device=device,
-                http_proxy=args.pick_score_http_proxy,
-                https_proxy=args.pick_score_https_proxy,
-            )
-        )
-        if args.unified_reward_url is not None:
-            unified_reward_urls = args.unified_reward_url.split(",")
-            if isinstance(unified_reward_urls, list):
-                num_urls = len(unified_reward_urls)
-                ur_url_idx = rank % num_urls
-                ur_url = unified_reward_urls[ur_url_idx]
-                print(f"Rank {rank} using unified-reward URL: {ur_url}")
-            reward_models.append(
-                UnifiedRewardModel(
-                    api_url=ur_url,
-                    default_question_type=args.unified_reward_default_question_type,
-                    num_workers=args.unified_reward_num_workers,
-                )
-            )
-    else:
-        raise ValueError(f"Unsupported reward model: {args.reward_model}")
 
     ############################# Reward Models Setting #############################
 
     # Initialize reward model weights only for activated models
-    reward_weights = {}
-    for model in reward_models:
-        model_name = type(model).__name__
-        if model_name == "HPSClipRewardModel":
-            weight = args.hps_weight
-        elif model_name == "CLIPScoreRewardModel":
-            weight = args.clip_score_weight
-        elif model_name == "ImageRewardModel":
-            weight = args.image_reward_weight
-        elif model_name == "UnifiedRewardModel":
-            weight = args.unified_reward_weight
-        elif model_name == "PickScoreRewardModel":
-            weight = args.pick_score_weight
-        else:
-            weight = 1.0
-        reward_weights[model_name] = weight
-
-    # Normalize weights
-    total_weight = sum(reward_weights.values())
-    if total_weight > 0:
-        reward_weights = {k: v / total_weight for k, v in reward_weights.items()}
-    else:
-        print("No reward models activated or all weights are 0!")
-        reward_weights = {type(model).__name__: 1.0 / len(reward_models) for model in reward_models}
-
-    print(f"reward_weights: {reward_weights}")
 
     ############################# Build FLUX #############################
     main_print(f"--> loading model from {args.pretrained_model_name_or_path}")
@@ -960,7 +841,7 @@ def main(args):
                 device,
                 transformer,
                 vae,
-                reward_models,
+                reward_function,
                 optimizer,
                 lr_scheduler,
                 loader,

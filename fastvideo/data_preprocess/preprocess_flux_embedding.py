@@ -102,6 +102,7 @@ def main(args):
             item["text_ids"] = str(i) + ".pt"
             item["pooled_prompt_embeds_path"] = str(i) + ".pt"
             item["caption"] = data["caption"]
+            item["qa"] = data["qa"]
             json_data.append(item)
     dist.barrier()
     local_data = json_data
@@ -144,4 +145,3 @@ if __name__ == "__main__":
     parser.add_argument("--prompt_path", type=str, default="./empty.txt")
     args = parser.parse_args()
     main(args)
-
